@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "@/components/ThemeProvider";
-import { Sun, Moon, Search, User, LogOut, LayoutDashboard } from "lucide-react";
+import { Sun, Moon, Search, User, LogOut, LayoutDashboard, Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Navbar() {
@@ -14,6 +14,7 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const router = require("next/navigation").useRouter();
 
@@ -38,9 +39,9 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Middle: Links */}
+          {/* Middle: Links (Desktop only) */}
           {session && (
-            <div className="hidden md:block">
+            <div className="hidden md:block flex-1">
               <div className="ml-10 flex items-baseline space-x-4">
                 <Link href="/circulars" className="hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 rounded-md text-sm font-medium transition">Circulars</Link>
                 <Link href="/circulars?category=Accounts" className="hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 rounded-md text-sm font-medium transition">Accounts</Link>
@@ -119,9 +120,69 @@ export default function Navbar() {
                 </AnimatePresence>
               </div>
             )}
+
+            {/* Mobile Menu Toggle */}
+            {session && (
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="md:hidden p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-700 dark:text-slate-300"
+              >
+                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {isMobileMenuOpen && session && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="md:hidden bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 overflow-hidden"
+          >
+            <div className="px-4 py-3 space-y-2">
+              <Link
+                href="/circulars"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block hover:bg-slate-100 dark:hover:bg-slate-700 px-3 py-2 rounded-md text-sm font-medium transition"
+              >
+                Circulars
+              </Link>
+              <Link
+                href="/circulars?category=Accounts"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block hover:bg-slate-100 dark:hover:bg-slate-700 px-3 py-2 rounded-md text-sm font-medium transition"
+              >
+                Accounts
+              </Link>
+              <Link
+                href="/circulars?category=HR"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block hover:bg-slate-100 dark:hover:bg-slate-700 px-3 py-2 rounded-md text-sm font-medium transition"
+              >
+                HR
+              </Link>
+              <Link
+                href="/circulars?category=Operation"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block hover:bg-slate-100 dark:hover:bg-slate-700 px-3 py-2 rounded-md text-sm font-medium transition"
+              >
+                Operation
+              </Link>
+              <Link
+                href="/circulars?category=General"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block hover:bg-slate-100 dark:hover:bg-slate-700 px-3 py-2 rounded-md text-sm font-medium transition"
+              >
+                General
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Search Overlay */}
       <AnimatePresence>
