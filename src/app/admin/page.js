@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Save, UploadCloud, File, AlertCircle, PlusCircle, Trash2 } from "lucide-react";
+import { Save, UploadCloud, File, AlertCircle, PlusCircle, Trash2, Edit } from "lucide-react";
 import Swal from "sweetalert2";
+import Link from "next/link";
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
@@ -25,6 +26,32 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("circulars");
   const [noticeData, setNoticeData] = useState({ title: "", content: "", priority: "Normal" });
   const [noticeLoading, setNoticeLoading] = useState(false);
+
+  const [circulars, setCirculars] = useState([]);
+  const [notices, setNotices] = useState([]);
+  const [listLoading, setListLoading] = useState(true);
+
+  // Fetch lists
+  useEffect(() => {
+    const fetchLists = async () => {
+      setListLoading(true);
+      try {
+        const [circRes, notRes] = await Promise.all([
+          fetch("/api/circulars"),
+          fetch("/api/notices")
+        ]);
+        const circData = await circRes.json();
+        const notData = await notRes.json();
+        setCirculars(circData);
+        setNotices(notData);
+      } catch (err) {
+        console.error("Failed to fetch lists:", err);
+      } finally {
+        setListLoading(false);
+      }
+    };
+    fetchLists();
+  }, []);
 
   // Redirect if not admin
   if (status === "loading") return <div className="p-8">Loading...</div>;
@@ -167,21 +194,33 @@ export default function AdminPage() {
         </div>
         <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
           <button
-            onClick={() => setActiveTab("circulars")}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === "circulars" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"}`}
+            onClick={() => setActiveTab("add-circulars")}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === "add-circulars" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"}`}
           >
-            Circulars
+            Add Circular
           </button>
           <button
-            onClick={() => setActiveTab("notices")}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === "notices" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"}`}
+            onClick={() => setActiveTab("manage-circulars")}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === "manage-circulars" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"}`}
           >
-            Notices
+            Manage Circulars
+          </button>
+          <button
+            onClick={() => setActiveTab("add-notices")}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === "add-notices" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"}`}
+          >
+            Add Notice
+          </button>
+          <button
+            onClick={() => setActiveTab("manage-notices")}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === "manage-notices" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"}`}
+          >
+            Manage Notices
           </button>
         </div>
       </div>
 
-      {activeTab === "circulars" && (
+      {activeTab === "add-circulars" && (
         <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in">
           {/* Row 1: No, Category, Date */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -338,7 +377,38 @@ export default function AdminPage() {
         </form>
       )}
 
-      {activeTab === "notices" && (
+      {activeTab === "manage-circulars" && (
+        <div className="space-y-6 animate-in fade-in">
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Manage Circulars</h3>
+          {listLoading ? (
+            <div className="text-center">Loading...</div>
+          ) : circulars.length === 0 ? (
+            <div className="text-center text-slate-500">No circulars found.</div>
+          ) : (
+            <div className="space-y-4">
+              {circulars.map((circular) => (
+                <div key={circular._id} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-semibold text-slate-900 dark:text-white">{circular.circularNo}</h4>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">{circular.date}</p>
+                      <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{circular.topics?.[0] || "No topics"}</p>
+                    </div>
+                    <Link
+                      href={`/admin/update-circular/${encodeURIComponent(circular.circularNo)}`}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                    >
+                      <Edit size={16} /> Edit
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "add-notices" && (
         <form onSubmit={handleNoticeSubmit} className="space-y-6 animate-in fade-in">
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Notice Title</label>
@@ -389,6 +459,37 @@ export default function AdminPage() {
             </button>
           </div>
         </form>
+      )}
+
+      {activeTab === "manage-notices" && (
+        <div className="space-y-6 animate-in fade-in">
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Manage Notices</h3>
+          {listLoading ? (
+            <div className="text-center">Loading...</div>
+          ) : notices.length === 0 ? (
+            <div className="text-center text-slate-500">No notices found.</div>
+          ) : (
+            <div className="space-y-4">
+              {notices.map((notice) => (
+                <div key={notice._id} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-semibold text-slate-900 dark:text-white">{notice.title}</h4>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">{notice.priority} Priority</p>
+                      <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{notice.content.substring(0, 100)}...</p>
+                    </div>
+                    <Link
+                      href={`/admin/update-notice/${notice._id}`}
+                      className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                    >
+                      <Edit size={16} /> Edit
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

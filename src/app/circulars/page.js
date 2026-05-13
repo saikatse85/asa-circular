@@ -13,6 +13,19 @@ export default function CircularsPage() {
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const getResultTitle = (result) => {
+    if (typeof result.title === "string") return result.title;
+    if (result.title && typeof result.title === "object") {
+      return result.title.title || result.title.details || JSON.stringify(result.title);
+    }
+    if (result.topics) {
+      return Array.isArray(result.topics)
+        ? result.topics.map((topicItem) => typeof topicItem === "string" ? topicItem : topicItem.title || topicItem.details || JSON.stringify(topicItem)).join(" • ")
+        : "View Circular Details";
+    }
+    return "View Circular Details";
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -73,7 +86,7 @@ export default function CircularsPage() {
                   </span>
                 </div>
                 <p className="text-slate-600 dark:text-slate-300 mt-2">
-                  {result.title || (result.topics ? result.topics.join(" • ") : "View Circular Details")}
+                  {getResultTitle(result)}
                 </p>
               </Link>
             ))}

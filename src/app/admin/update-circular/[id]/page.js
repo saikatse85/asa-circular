@@ -1,0 +1,339 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter, useParams } from "next/navigation";
+import { Save, UploadCloud, File, AlertCircle, PlusCircle, Trash2 } from "lucide-react";
+import Swal from "sweetalert2";
+
+export default function UpdateCircularPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const { id } = useParams();
+
+  const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(true);
+  const [file, setFile] = useState(null);
+
+  const [formData, setFormData] = useState({
+    circularNo: "",
+    date: "",
+    categories: ["HR"],
+    topics: [""],
+    topicDetails: [""],
+    fullContent: "",
+  });
+
+  // Fetch data
+  useEffect(() => {
+    const fetchCircular = async () => {
+      try {
+        const res = await fetch(`/api/circulars/${encodeURIComponent(id)}`);
+        if (!res.ok) throw new Error("Failed to fetch circular");
+        const data = await res.json();
+        const normalizeValue = (item) => {
+          if (item == null) return "";
+          if (typeof item === "string") return item;
+          return item.title || item.details || JSON.stringify(item);
+        };
+        setFormData({
+          circularNo: data.circularNo || "",
+          date: data.date || "",
+          categories: Array.isArray(data.categories)
+            ? data.categories.map((item) => (typeof item === "string" ? item : item.category || JSON.stringify(item)))
+            : ["HR"],
+          topics: Array.isArray(data.topics)
+            ? data.topics.map(normalizeValue)
+            : [""],
+          topicDetails: Array.isArray(data.topicDetails)
+            ? data.topicDetails.map(normalizeValue)
+            : [""],
+          fullContent: data.fullContent || "",
+        });
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load circular data';
+        console.error(err);
+        Swal.fire({ title: 'Error', text: errorMessage, icon: 'error' });
+      } finally {
+        setFetchLoading(false);
+      }
+    };
+    if (id) fetchCircular();
+  }, [id]);
+
+  // Redirect if not admin
+  if (status === "loading") return <div className="p-8">Loading...</div>;
+  if (!session || session.user.role !== "admin") {
+    return (
+      <div className="p-8 text-center mt-20">
+        <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Access Denied</h2>
+        <p className="text-slate-500 mt-2">You must be an admin to view this page.</p>
+        <button onClick={() => router.push("/")} className="mt-6 text-blue-600 hover:underline">
+          Return Home
+        </button>
+      </div>
+    );
+  }
+
+  const handleCategoryChange = (index, value) => {
+    const newCategories = [...formData.categories];
+    newCategories[index] = value;
+    setFormData({ ...formData, categories: newCategories });
+  };
+
+  const handleTopicChange = (index, value) => {
+    const newTopics = [...formData.topics];
+    newTopics[index] = value;
+    setFormData({ ...formData, topics: newTopics });
+  };
+
+  const handleDetailsChange = (index, value) => {
+    const newDetails = [...formData.topicDetails];
+    newDetails[index] = value;
+    setFormData({ ...formData, topicDetails: newDetails });
+  };
+
+  const handleAddTopic = (index) => {
+    const newCategories = [...formData.categories];
+    const newTopics = [...formData.topics];
+    const newDetails = [...formData.topicDetails];
+
+    newCategories.splice(index + 1, 0, "HR");
+    newTopics.splice(index + 1, 0, "");
+    newDetails.splice(index + 1, 0, "");
+
+    setFormData({ ...formData, categories: newCategories, topics: newTopics, topicDetails: newDetails });
+  };
+
+  const handleRemoveTopic = (index) => {
+    if (formData.topics.length === 1) return; // Keep at least one
+    const newCategories = [...formData.categories];
+    const newTopics = [...formData.topics];
+    const newDetails = [...formData.topicDetails];
+
+    newCategories.splice(index, 1);
+    newTopics.splice(index, 1);
+    newDetails.splice(index, 1);
+
+    setFormData({ ...formData, categories: newCategories, topics: newTopics, topicDetails: newDetails });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      let attachmentUrl = formData.attachmentUrl || "";
+
+      if (file) {
+        const fileData = new FormData();
+        fileData.append("file", file);
+
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: fileData,
+        });
+
+        if (!uploadRes.ok) throw new Error("File upload failed");
+
+        const uploadResult = await uploadRes.json();
+        attachmentUrl = uploadResult.url;
+      }
+
+      const res = await fetch(`/api/circulars/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          attachmentUrl,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update circular");
+
+      Swal.fire({ title: 'Success!', text: 'Circular updated successfully!', icon: 'success' });
+      router.push("/admin");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      console.error(err);
+      Swal.fire({ title: 'Error', text: errorMessage, icon: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (fetchLoading) {
+    return (
+      <div className="max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 mt-8">
+        <div className="text-center">Loading circular data...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 mt-8">
+      <div className="mb-8 border-b border-slate-200 dark:border-slate-700 pb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Update Circular</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-2">Edit the circular details.</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in">
+        {/* Row 1: No, Category, Date */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Circular No
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. সিএ-০০১/২০২৬"
+              value={formData.circularNo}
+              onChange={(e) => setFormData({ ...formData, circularNo: e.target.value })}
+              className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Date
+            </label>
+            <input
+              type="date"
+              required
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white"
+            />
+          </div>
+        </div>
+
+        {/* 4 Topics and Details */}
+        <div className="space-y-6">
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-700 pb-2">
+            Topics & Sub-menus
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {formData.topics.map((topic, i) => (
+              <div key={i} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-700/50">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-xs font-semibold text-slate-500 uppercase">
+                    Topic {i + 1}
+                  </label>
+                  {formData.topics.length > 1 && (
+                    <button type="button" onClick={() => handleRemoveTopic(i)} className="text-red-500 hover:text-red-700 p-1">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Category
+                  </label>
+                  <select
+                    value={formData.categories[i]}
+                    onChange={(e) => handleCategoryChange(i, e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white"
+                  >
+                    <option value="HR">HR</option>
+                    <option value="Operation">Operation</option>
+                    <option value="Accounts">Accounts</option>
+                    <option value="General">General</option>
+                  </select>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Topic / Sub-menu title"
+                  value={formData.topics[i]}
+                  onChange={(e) => handleTopicChange(i, e.target.value)}
+                  className="w-full px-4 py-2 mb-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-900 dark:text-white"
+                />
+                <textarea
+                  placeholder="Details for this topic..."
+                  value={formData.topicDetails[i]}
+                  onChange={(e) => handleDetailsChange(i, e.target.value)}
+                  rows={2}
+                  className="w-full px-4 py-2 mb-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-900 dark:text-white resize-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleAddTopic(i)}
+                  className="flex items-center gap-2 mt-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
+                >
+                  <PlusCircle size={16} /> Add another topic below
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Full Content */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            Full Circular Content
+          </label>
+          <textarea
+            required
+            rows={8}
+            placeholder="Enter the full text of the circular here..."
+            value={formData.fullContent}
+            onChange={(e) => setFormData({ ...formData, fullContent: e.target.value })}
+            className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white resize-y"
+          />
+        </div>
+
+        {/* File Upload */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            Attachment (PDF/Word)
+          </label>
+          <div className="relative flex items-center justify-center w-full">
+            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 dark:border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <UploadCloud className="w-8 h-8 mb-3 text-slate-400" />
+                <p className="mb-2 text-sm text-slate-500 dark:text-slate-400">
+                  <span className="font-semibold">Click to upload</span> or drag and drop
+                </p>
+              </div>
+              <input
+                type="file"
+                className="hidden"
+                accept=".pdf,.doc,.docx"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+              />
+            </label>
+          </div>
+          {file && (
+            <div className="mt-3 flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+              <File size={16} />
+              <span className="truncate max-w-[200px]">{file.name}</span>
+              <button type="button" onClick={() => setFile(null)} className="ml-auto text-red-500 hover:text-red-700">
+                Remove
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Submit */}
+        <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium rounded-xl transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <Save size={18} /> Update Circular
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

@@ -8,6 +8,18 @@ export default async function CircularDetailsPage({ params, searchParams }) {
   const decodedId = decodeURIComponent(id);
   const selectedTopic = topic ? decodeURIComponent(topic) : null;
 
+  const normalizeTopicLabel = (topicItem) => {
+    if (topicItem == null) return "";
+    if (typeof topicItem === "string") return topicItem;
+    return topicItem.title || topicItem.details || JSON.stringify(topicItem);
+  };
+
+  const normalizeDetailText = (detailItem) => {
+    if (detailItem == null) return "";
+    if (typeof detailItem === "string") return detailItem;
+    return detailItem.details || detailItem.title || JSON.stringify(detailItem);
+  };
+
   const client = await clientPromise;
   const db = client.db("asa-circular");
   const circular = await db.collection("circulars").findOne({ circularNo: decodedId });
@@ -16,7 +28,9 @@ export default async function CircularDetailsPage({ params, searchParams }) {
     notFound();
   }
 
-  const topicIndex = selectedTopic && circular.topics ? circular.topics.findIndex(t => t === selectedTopic) : -1;
+  const topicIndex = selectedTopic && circular.topics
+    ? circular.topics.findIndex(t => normalizeTopicLabel(t) === selectedTopic)
+    : -1;
 
   return (
     <div className="max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -53,7 +67,7 @@ export default async function CircularDetailsPage({ params, searchParams }) {
                   {idx + 1}
                 </span>
                 <span className="text-slate-700 dark:text-slate-300 font-medium">
-                  {topic}
+                  {normalizeTopicLabel(topic)}
                 </span>
               </li>
             );
@@ -68,7 +82,7 @@ export default async function CircularDetailsPage({ params, searchParams }) {
         </h3>
         <div className="prose dark:prose-invert max-w-none text-slate-600 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
           {selectedTopic && topicIndex !== -1 && circular.topicDetails && circular.topicDetails[topicIndex]
-            ? circular.topicDetails[topicIndex]
+            ? normalizeDetailText(circular.topicDetails[topicIndex])
             : circular.fullContent}
         </div>
       </div>

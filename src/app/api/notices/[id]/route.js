@@ -3,6 +3,34 @@ import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { getServerSession } from "next-auth/next";
 
+export async function GET(req, { params }) {
+  try {
+    const {id} =await params;
+
+    const client = await clientPromise;
+    const db = client.db("asa-circular");
+
+    const notice = await db.collection("notices").findOne({
+      _id: new ObjectId(id),
+    });
+
+    if (!notice) {
+      return NextResponse.json(
+        { message: "Notice not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(notice);
+  } catch (error) {
+    return NextResponse.json(
+      { message: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+
 export async function PUT(req, { params }) {
   try {
     const session = await getServerSession();
